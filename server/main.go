@@ -14,6 +14,7 @@ var (
 	wsConnection     *websocket.Conn
 	wsResponse       []byte
 	prevResponseTime time.Time
+	isRequestBusy    bool
 )
 
 type Message struct {
@@ -38,6 +39,13 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if wsConnection != nil {
+		log.Println("Refused ws connection:", r.RemoteAddr)
+		conn.WriteMessage(websocket.TextMessage, []byte("WebSocket connection already active"))
+		conn.Close()
+		return
+	}
+
 	wsConnection = conn
 	log.Println("Established ws connection:", r.RemoteAddr)
 
@@ -45,7 +53,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("Websocket read error:", err)
-			return
+			break
 		}
 
 		wsResponse = message
@@ -53,13 +61,23 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 		log.Println("Received message from websocket:", string(message))
 	}
+
+	wsConnection = nil
 }
 
 func tunnelHandler(w http.ResponseWriter, r *http.Request) {
+	if isRequestBusy {
+		http.Error(w, "Previous request is still being processed", http.StatusForbidden)
+		return
+	}
+
+	isRequestBusy = true
+
 	startTime := time.Now()
 
 	if wsConnection == nil {
 		http.Error(w, "No active tunnel ws connections", http.StatusInternalServerError)
+		isRequestBusy = false
 		return
 	}
 
@@ -74,6 +92,7 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		log.Println("Error parsing form data:", err)
+		isRequestBusy = false
 		return
 	}
 
@@ -82,12 +101,14 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 	jsonData, err := json.Marshal(message)
 	if err != nil {
 		log.Println("Error encoding message as JSON:", err)
+		isRequestBusy = false
 		return
 	}
 
 	err = wsConnection.WriteMessage(websocket.TextMessage, jsonData)
 	if err != nil {
 		log.Println("Websocket write error:", err)
+		isRequestBusy = false
 		return
 	}
 
@@ -101,6 +122,7 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 
 	if time.Now().After(end) {
 		http.Error(w, "Timeout Error: could not get a response after 60s", http.StatusInternalServerError)
+		isRequestBusy = false
 		return
 	}
 
@@ -112,6 +134,7 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error parsing response:", err)
 		log.Println("Responding with currentResponse")
 		http.Error(w, string(currentResponse), http.StatusInternalServerError)
+		isRequestBusy = false
 		return
 	}
 
@@ -125,6 +148,8 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Set the response body
 	fmt.Fprint(w, parsedResponse.Body)
+
+	isRequestBusy = false
 }
 
 func main() {
