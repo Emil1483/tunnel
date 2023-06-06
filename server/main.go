@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -15,6 +18,7 @@ var (
 	wsResponse       []byte
 	prevResponseTime time.Time
 	isRequestBusy    bool
+	accessTokenHash  string
 )
 
 type Message struct {
@@ -33,6 +37,7 @@ type ResponseData struct {
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Websocket upgrade failed:", err)
@@ -40,8 +45,16 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wsConnection != nil {
-		log.Println("Refused ws connection:", r.RemoteAddr)
+		log.Println("Refused ws connection. Connection already active:", r.RemoteAddr)
 		conn.WriteMessage(websocket.TextMessage, []byte("WebSocket connection already active"))
+		conn.Close()
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+	if !compareAccessToken(token, accessTokenHash) {
+		log.Println("Refused ws connection. Bad access token:", r.RemoteAddr)
+		conn.WriteMessage(websocket.TextMessage, []byte("Unauthorized: Bad access token"))
 		conn.Close()
 		return
 	}
@@ -152,12 +165,34 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 	isRequestBusy = false
 }
 
+func compareAccessToken(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Error loading .env file:", err)
+	}
+
+	accessToken := os.Getenv("ACCESS_TOKEN")
+	if accessToken == "" {
+		log.Fatal("ACCESS_TOKEN environment variable is not set")
+	}
+
+	// Hash the accessToken
+	hash, err := bcrypt.GenerateFromPassword([]byte(accessToken), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatal("Error hashing accessToken:", err)
+	}
+	accessTokenHash = string(hash)
+
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/", tunnelHandler)
 
 	log.Println("Starting server on localhost")
-	err := http.ListenAndServe(":80", nil)
+	err = http.ListenAndServe(":80", nil)
 	if err != nil {
 		log.Fatal("Server error:", err)
 	}

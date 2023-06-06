@@ -27,6 +27,7 @@ type Response struct {
 type Config struct {
 	TunnelURI   string `json:"tunnelUri"`
 	EndpointURI string `json:"endpointUri"`
+	AccessToken string `json:"accessToken"`
 }
 
 func main() {
@@ -43,7 +44,8 @@ func main() {
 	}
 
 	// Connect to the WebSocket server
-	conn, _, err := websocket.DefaultDialer.Dial(config.TunnelURI, nil)
+	wsURI := config.TunnelURI + "?token=" + config.AccessToken
+	conn, _, err := websocket.DefaultDialer.Dial(wsURI, nil)
 	if err != nil {
 		log.Fatal("WebSocket connection error:", err)
 	}
@@ -62,7 +64,7 @@ func main() {
 		var msg Message
 		err = json.Unmarshal(message, &msg)
 		if err != nil {
-			log.Println("Error parsing message:", err)
+			log.Println("Error parsing message:", string(message))
 			continue
 		}
 
