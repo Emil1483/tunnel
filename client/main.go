@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -16,6 +16,12 @@ type Message struct {
 	Headers       map[string][]string `json:"headers"`
 	Params        map[string][]string `json:"params"`
 	Body          string              `json:"body"`
+}
+
+type Response struct {
+	StatusCode int                 `json:"status_code"`
+	Headers    map[string][]string `json:"headers"`
+	Body       string              `json:"body"`
 }
 
 func main() {
@@ -73,7 +79,32 @@ func main() {
 		}
 		defer resp.Body.Close()
 
-		// Print the response
-		fmt.Println("Response Status:", resp.Status)
+		// Read the response body
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Println("Error reading response body:", err)
+			continue
+		}
+
+		// Create the response message
+		response := Response{
+			StatusCode: resp.StatusCode,
+			Headers:    resp.Header,
+			Body:       string(body),
+		}
+		responseJSON, err := json.Marshal(response)
+		if err != nil {
+			log.Println("Error encoding response message:", err)
+			continue
+		}
+
+		// Write the response back to the WebSocket server
+		err = conn.WriteMessage(websocket.TextMessage, responseJSON)
+		if err != nil {
+			log.Println("Error writing response to WebSocket:", err)
+			break
+		}
+
+		log.Printf("Response Message: %s", responseJSON)
 	}
 }

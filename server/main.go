@@ -31,11 +31,12 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	wsConnection = conn
 
 	for {
-		_, _, err := conn.ReadMessage()
+		_, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("Websocket read error:", err)
 			return
 		}
+		log.Println("Received message:", string(message))
 	}
 }
 
