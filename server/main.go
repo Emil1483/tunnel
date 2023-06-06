@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,6 +11,14 @@ import (
 )
 
 var wsConnection *websocket.Conn
+
+type Message struct {
+	Method        string              `json:"method"`
+	TargetedRoute string              `json:"targeted_route"`
+	Headers       map[string][]string `json:"headers"`
+	Params        map[string][]string `json:"params"`
+	Body          string              `json:"body"`
+}
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{}
@@ -37,29 +46,13 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build the message with request information
-	message := fmt.Sprintf("HTTP Method: %s\n\n", r.Method)
-	message += fmt.Sprintf("Targeted Route: %s\n\n", r.URL.Path)
-
-	// Request headers
-	message += "Headers:\n"
-	for key, values := range r.Header {
-		for _, value := range values {
-			message += fmt.Sprintf("%s: %s\n", key, value)
-		}
+	message := Message{
+		Method:        r.Method,
+		TargetedRoute: r.URL.Path,
+		Headers:       r.Header,
+		Params:        r.URL.Query(),
 	}
-	message += "\n"
 
-	// Request params
-	message += "Params:\n"
-	queryParams := r.URL.Query()
-	for key, values := range queryParams {
-		for _, value := range values {
-			message += fmt.Sprintf("%s: %s\n", key, value)
-		}
-	}
-	message += "\n"
-
-	// Request body
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println("Error reading request body:", err)
@@ -67,9 +60,15 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	message += "Body:\n" + string(body)
+	message.Body = string(body)
 
-	err = wsConnection.WriteMessage(websocket.TextMessage, []byte(message))
+	jsonData, err := json.Marshal(message)
+	if err != nil {
+		log.Println("Error encoding message as JSON:", err)
+		return
+	}
+
+	err = wsConnection.WriteMessage(websocket.TextMessage, jsonData)
 	if err != nil {
 		log.Println("Websocket write error:", err)
 		return
