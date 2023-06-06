@@ -24,9 +24,26 @@ type Response struct {
 	Body       string              `json:"body"`
 }
 
+type Config struct {
+	TunnelURI   string `json:"tunnelUri"`
+	EndpointURI string `json:"endpointUri"`
+}
+
 func main() {
+	configData, err := ioutil.ReadFile("settings.conf")
+	if err != nil {
+		log.Fatal("Error reading configuration file:", err)
+	}
+
+	// Parse the configuration
+	var config Config
+	err = json.Unmarshal(configData, &config)
+	if err != nil {
+		log.Fatal("Error parsing configuration file:", err)
+	}
+
 	// Connect to the WebSocket server
-	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/ws", nil)
+	conn, _, err := websocket.DefaultDialer.Dial(config.TunnelURI, nil)
 	if err != nil {
 		log.Fatal("WebSocket connection error:", err)
 	}
@@ -50,7 +67,7 @@ func main() {
 		}
 
 		// Create the HTTP request
-		req, err := http.NewRequest(msg.Method, "http://localhost:3000"+msg.TargetedRoute, strings.NewReader(msg.Body))
+		req, err := http.NewRequest(msg.Method, config.EndpointURI+msg.TargetedRoute, strings.NewReader(msg.Body))
 		if err != nil {
 			log.Println("Error creating request:", err)
 			continue

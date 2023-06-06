@@ -130,8 +130,8 @@ func main() {
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/", tunnelHandler)
 
-	log.Println("Starting server on http://localhost:8080")
-	err := http.ListenAndServe(":8080", nil)
+	log.Println("Starting server on localhost")
+	err := http.ListenAndServe(":80", nil)
 	if err != nil {
 		log.Fatal("Server error:", err)
 	}

@@ -1,0 +1,5 @@
+{
+    "tunnelUri": "ws://localhost/ws",
+    "endpointUri": "http://localhost:3000",
+    "accessToken": "YOUR_TOKEN_HERE"
+}
