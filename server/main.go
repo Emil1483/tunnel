@@ -39,6 +39,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wsConnection = conn
+	log.Println("Established ws connection:", r.RemoteAddr)
 
 	for {
 		_, message, err := conn.ReadMessage()
@@ -58,7 +59,7 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
 	if wsConnection == nil {
-		log.Println("No active websocket connection")
+		http.Error(w, "No active tunnel ws connections", http.StatusInternalServerError)
 		return
 	}
 
@@ -90,18 +91,16 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	i := 0
-	maxI := 60_000
-	for i = 1; i < maxI; i++ {
+	end := time.Now().Add(time.Minute)
+	for time.Now().Before(end) {
 		if startTime.Before(prevResponseTime) {
 			break
 		}
 		time.Sleep(time.Millisecond)
 	}
 
-	if i == maxI {
-		w.WriteHeader(500)
-		fmt.Fprint(w, "Timeout Error: could not get a response after 60s")
+	if time.Now().After(end) {
+		http.Error(w, "Timeout Error: could not get a response after 60s", http.StatusInternalServerError)
 		return
 	}
 
@@ -111,6 +110,8 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(currentResponse, &parsedResponse)
 	if err != nil {
 		log.Println("Error parsing response:", err)
+		log.Println("Responding with currentResponse")
+		http.Error(w, string(currentResponse), http.StatusInternalServerError)
 		return
 	}
 

@@ -49,7 +49,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	log.Println("Connected to WS tunnel")
+	log.Println("Connected to WS tunnel:", config.TunnelURI)
 
 	for {
 		_, message, err := conn.ReadMessage()
@@ -94,6 +94,10 @@ func main() {
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Println("Error sending request:", err)
+			err = conn.WriteMessage(websocket.TextMessage, []byte(err.Error()))
+			if err != nil {
+				log.Println("Error sending error message:", err)
+			}
 			continue
 		}
 		defer resp.Body.Close()
