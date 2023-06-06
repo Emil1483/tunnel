@@ -165,8 +165,8 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 	isRequestBusy = false
 }
 
-func compareAccessToken(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+func compareAccessToken(accessToken, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(accessToken))
 	return err == nil
 }
 

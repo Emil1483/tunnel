@@ -1,2 +1,5 @@
 settings.conf
+settings.conf.prod
+settings.conf.test
+
 .env
