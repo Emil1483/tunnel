@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -30,8 +32,27 @@ type Config struct {
 	AccessToken string `json:"accessToken"`
 }
 
+func ConfigPath() string {
+	if len(os.Args) > 1 {
+		return os.Args[1]
+	}
+
+	// Get the absolute path to the directory containing the main.go file
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath := filepath.Dir(ex)
+
+	// Build the path to the settings.conf file
+	configPath := filepath.Join(exPath, "settings.conf")
+
+	return configPath
+}
+
 func main() {
-	configData, err := ioutil.ReadFile("settings.conf")
+	// Open the settings.conf file
+	configData, err := ioutil.ReadFile(ConfigPath())
 	if err != nil {
 		log.Fatal("Error reading configuration file:", err)
 	}
