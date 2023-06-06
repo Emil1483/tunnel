@@ -32,6 +32,8 @@ func main() {
 	}
 	defer conn.Close()
 
+	log.Println("Connected to WS tunnel")
+
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {

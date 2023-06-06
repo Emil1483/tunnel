@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 var (
-	wsConnection *websocket.Conn
-	wsResponse   string
-	responseLock sync.RWMutex
+	wsConnection     *websocket.Conn
+	wsResponse       []byte
+	prevResponseTime time.Time
 )
 
 type Message struct {
@@ -22,6 +22,12 @@ type Message struct {
 	Headers       map[string][]string `json:"headers"`
 	Params        map[string][]string `json:"params"`
 	Body          string              `json:"body"`
+}
+
+type ResponseData struct {
+	StatusCode int                 `json:"status_code"`
+	Headers    map[string][]string `json:"headers"`
+	Body       string              `json:"body"`
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
@@ -41,15 +47,16 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		responseLock.Lock()
-		wsResponse = string(message)
-		responseLock.Unlock()
+		wsResponse = message
+		prevResponseTime = time.Now()
 
-		log.Println("Received message from websocket:", wsResponse)
+		log.Println("Received message from websocket:", string(message))
 	}
 }
 
 func tunnelHandler(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+
 	if wsConnection == nil {
 		log.Println("No active websocket connection")
 		return
@@ -83,11 +90,40 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseLock.RLock()
-	currentResponse := wsResponse
-	responseLock.RUnlock()
+	i := 0
+	maxI := 60_000
+	for i = 1; i < maxI; i++ {
+		if startTime.Before(prevResponseTime) {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 
-	fmt.Fprint(w, currentResponse)
+	if i == maxI {
+		w.WriteHeader(500)
+		fmt.Fprint(w, "Timeout Error: could not get a response after 60s")
+		return
+	}
+
+	currentResponse := wsResponse
+
+	parsedResponse := ResponseData{}
+	err = json.Unmarshal(currentResponse, &parsedResponse)
+	if err != nil {
+		log.Println("Error parsing response:", err)
+		return
+	}
+
+	// Set the status code and headers
+	for key, values := range parsedResponse.Headers {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(parsedResponse.StatusCode)
+
+	// Set the response body
+	fmt.Fprint(w, parsedResponse.Body)
 }
 
 func main() {
