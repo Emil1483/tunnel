@@ -3,14 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
-var wsConnection *websocket.Conn
+var (
+	wsConnection *websocket.Conn
+	wsResponse   string
+	responseLock sync.RWMutex
+)
 
 type Message struct {
 	Method        string              `json:"method"`
@@ -36,7 +40,12 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Println("Websocket read error:", err)
 			return
 		}
-		log.Println("Received message:", string(message))
+
+		responseLock.Lock()
+		wsResponse = string(message)
+		responseLock.Unlock()
+
+		log.Println("Received message from websocket:", wsResponse)
 	}
 }
 
@@ -54,14 +63,13 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 		Params:        r.URL.Query(),
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	err := r.ParseForm()
 	if err != nil {
-		log.Println("Error reading request body:", err)
+		log.Println("Error parsing form data:", err)
 		return
 	}
-	defer r.Body.Close()
 
-	message.Body = string(body)
+	message.Body = r.Form.Encode()
 
 	jsonData, err := json.Marshal(message)
 	if err != nil {
@@ -75,7 +83,11 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w, "Message sent through websocket")
+	responseLock.RLock()
+	currentResponse := wsResponse
+	responseLock.RUnlock()
+
+	fmt.Fprint(w, currentResponse)
 }
 
 func main() {
