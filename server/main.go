@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -94,22 +95,23 @@ func tunnelHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Could not read body", http.StatusInternalServerError)
+		isRequestBusy = false
+		return
+	}
+
+	bodyString := string(bodyBytes)
+
 	// Build the message with request information
 	message := Message{
 		Method:        r.Method,
 		TargetedRoute: r.URL.Path,
 		Headers:       r.Header,
 		Params:        r.URL.Query(),
+		Body:          bodyString,
 	}
-
-	err := r.ParseForm()
-	if err != nil {
-		log.Println("Error parsing form data:", err)
-		isRequestBusy = false
-		return
-	}
-
-	message.Body = r.Form.Encode()
 
 	jsonData, err := json.Marshal(message)
 	if err != nil {

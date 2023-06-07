@@ -94,6 +94,9 @@ func main() {
 			continue
 		}
 
+		messageJSON, _ := json.MarshalIndent(msg, "", "  ")
+		log.Printf("Incoming request:\n%s\n\n\n", messageJSON)
+
 		// Create the HTTP request
 		req, err := http.NewRequest(msg.Method, config.EndpointURI+msg.TargetedRoute, strings.NewReader(msg.Body))
 		if err != nil {
@@ -156,6 +159,7 @@ func main() {
 			break
 		}
 
-		log.Printf("Response Message: %s", responseJSON)
+		messageFormatted, _ := json.MarshalIndent(response, "", "  ")
+		log.Printf("Returned response:\n%s\n\n\n", messageFormatted)
 	}
 }
