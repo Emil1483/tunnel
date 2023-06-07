@@ -51,8 +51,12 @@ func ConfigPath() string {
 }
 
 func main() {
+	configPath := ConfigPath()
+
+	log.Println("Using", configPath)
+
 	// Open the settings.conf file
-	configData, err := ioutil.ReadFile(ConfigPath())
+	configData, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Fatal("Error reading configuration file:", err)
 	}
@@ -73,6 +77,7 @@ func main() {
 	defer conn.Close()
 
 	log.Println("Connected to WS tunnel:", config.TunnelURI)
+	log.Println("Tunneling http requests to", config.EndpointURI)
 
 	for {
 		_, message, err := conn.ReadMessage()
