@@ -18,12 +18,14 @@ type Message struct {
 	Headers       map[string][]string `json:"headers"`
 	Params        map[string][]string `json:"params"`
 	Body          string              `json:"body"`
+	Id            string              `json:"id"`
 }
 
 type Response struct {
 	StatusCode int                 `json:"status_code"`
 	Headers    map[string][]string `json:"headers"`
 	Body       string              `json:"body"`
+	Id         string              `json:"id"`
 }
 
 type Config struct {
@@ -145,6 +147,7 @@ func main() {
 			StatusCode: resp.StatusCode,
 			Headers:    resp.Header,
 			Body:       string(body),
+			Id:         msg.Id,
 		}
 		responseJSON, err := json.Marshal(response)
 		if err != nil {
