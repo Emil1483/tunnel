@@ -47,10 +47,9 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wsConnection != nil {
-		log.Println("Refused ws connection. Connection already active:", r.RemoteAddr)
-		conn.WriteMessage(websocket.TextMessage, []byte("WebSocket connection already active"))
-		conn.Close()
-		return
+		log.Println("Connection established while interrupting another")
+		wsConnection.WriteMessage(websocket.TextMessage, []byte("Connection interrupted by another client"))
+		wsConnection.Close()
 	}
 
 	token := r.URL.Query().Get("token")
