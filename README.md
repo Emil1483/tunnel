@@ -29,7 +29,7 @@ git clone https://github.com/Emil1483/tunnel
 cd tunnel/client
 ```
 
-**Build the client the client with**
+Build the client with
 
 ```bash
 go build -o tunnel
